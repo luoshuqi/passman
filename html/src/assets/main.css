@@ -1,0 +1,39 @@
+::-webkit-scrollbar {
+    width: 3px;
+    height: 3px;
+}
+
+::-webkit-scrollbar-track {
+    border-radius: 10px;
+    background: rgba(0, 0, 0, 0.1);
+}
+
+::-webkit-scrollbar-thumb {
+    border-radius: 10px;
+    background: rgba(0, 0, 0, 0.2);
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 0, 0, 0.4);
+}
+
+::-webkit-scrollbar-thumb:active {
+    background: rgba(0, 0, 0, 0.9);
+}
+
+
+html,
+body,
+#app {
+    height: 100%;
+    overflow-y: auto !important;
+    overflow-x: hidden;
+}
+
+.v-container {
+    padding: 0 !important;
+}
+
+* {
+    box-sizing: border-box;
+}
