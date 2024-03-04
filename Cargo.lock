@@ -1361,9 +1361,9 @@ checksum = "d626bb9dae77e28219937af045c257c28bfd3f69333c512553507f5f9798cb76"
 
 [[package]]
 name = "rustic-jsonrpc"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d8f8f0beb97811d960a46fa1ba8841c6011a499194c59eae3acc67cbbe41a93e"
+checksum = "9fa68a88dd29a978f4dd338695c0a2d3a52d36f9cfdbcf8cc66e6e11024d2511"
 dependencies = [
  "rustic-jsonrpc-macro",
  "serde",
@@ -1372,9 +1372,9 @@ dependencies = [
 
 [[package]]
 name = "rustic-jsonrpc-macro"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7f6401d1ddab99018b0a7ae0efb370a12537c16316b085c56ae83cfbb4ec25b0"
+checksum = "7222d568a1f411a4db8a2de4c61f5905bcac755da138b959099f87bc01831d17"
 dependencies = [
  "proc-macro2",
  "quote",

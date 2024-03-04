@@ -11,9 +11,9 @@ use crate::user::UserManager;
 use crate::Opt;
 
 #[conerror]
-#[method(name = "user.login", inject(user_manager))]
+#[method(name = "user.login")]
 async fn login<'a>(
-    user_manager: &UserManager,
+    #[inject] user_manager: &UserManager,
     username: Cow<'a, str>,
     password: Cow<'a, str>,
 ) -> conerror::Result<String> {
@@ -23,10 +23,10 @@ async fn login<'a>(
 }
 
 #[conerror]
-#[method(name = "user.create", inject(user_manager, opt))]
+#[method(name = "user.create")]
 async fn create_user<'a>(
-    user_manager: &UserManager,
-    opt: &Opt,
+    #[inject] user_manager: &UserManager,
+    #[inject] opt: &Opt,
     username: Cow<'a, str>,
     password: Cow<'a, str>,
 ) -> conerror::Result<()> {
@@ -38,10 +38,10 @@ async fn create_user<'a>(
 }
 
 #[conerror]
-#[method(name = "password.list", inject(user_manager, password_manager))]
+#[method(name = "password.list")]
 async fn list_password(
-    user_manager: &UserManager,
-    password_manager: &PasswordManager,
+    #[inject] user_manager: &UserManager,
+    #[inject] password_manager: &PasswordManager,
     token: &str,
 ) -> conerror::Result<Vec<PasswordListItem>> {
     let user = user_manager.find_user(token).await?;
@@ -50,10 +50,10 @@ async fn list_password(
 }
 
 #[conerror]
-#[method(name = "password.view", inject(user_manager, password_manager))]
+#[method(name = "password.view")]
 async fn view_password(
-    user_manager: &UserManager,
-    password_manager: &PasswordManager,
+    #[inject] user_manager: &UserManager,
+    #[inject] password_manager: &PasswordManager,
     token: &str,
     id: i64,
 ) -> conerror::Result<Option<Password>> {
@@ -62,10 +62,10 @@ async fn view_password(
 }
 
 #[conerror]
-#[method(name = "password.create", inject(user_manager, password_manager))]
+#[method(name = "password.create")]
 async fn create_password<'a>(
-    user_manager: &UserManager,
-    password_manager: &PasswordManager,
+    #[inject] user_manager: &UserManager,
+    #[inject] password_manager: &PasswordManager,
     token: &str,
     name: Cow<'a, str>,
     username: Cow<'a, str>,
@@ -84,10 +84,10 @@ async fn create_password<'a>(
 }
 
 #[conerror]
-#[method(name = "password.update", inject(user_manager, password_manager))]
+#[method(name = "password.update")]
 async fn update_password<'a>(
-    user_manager: &UserManager,
-    password_manager: &PasswordManager,
+    #[inject] user_manager: &UserManager,
+    #[inject] password_manager: &PasswordManager,
     token: &str,
     id: i64,
     name: Cow<'a, str>,
@@ -107,10 +107,10 @@ async fn update_password<'a>(
 }
 
 #[conerror]
-#[method(name = "password.delete", inject(user_manager, password_manager))]
+#[method(name = "password.delete")]
 async fn delete_password(
-    user_manager: &UserManager,
-    password_manager: &PasswordManager,
+    #[inject] user_manager: &UserManager,
+    #[inject] password_manager: &PasswordManager,
     token: &str,
     id: i64,
 ) -> conerror::Result<()> {
