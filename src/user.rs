@@ -1,10 +1,11 @@
 use base64::prelude::BASE64_URL_SAFE_NO_PAD;
 use base64::Engine;
-use conerror::{conerror, Error};
+use conerror::conerror;
 use sha2::{Digest, Sha256};
 use sqlx::{FromRow, SqlitePool};
 
 use crate::encryption::EncryptionManager;
+use crate::error::{invalid_token, msg};
 use crate::util::{fill_bytes, timestamp};
 
 pub trait User {
@@ -82,10 +83,10 @@ impl UserManager {
     pub async fn login(&self, username: &str, password: &str) -> conerror::Result<impl User> {
         let u = match UserRow::find_by_username(&self.db, username).await? {
             Some(v) => v,
-            None => return Err(Error::plain("用户名或密码错误")),
+            None => return Err(msg("用户名或密码错误")),
         };
         if u.suspend > timestamp() {
-            return Err(Error::plain("请稍后再试"));
+            return Err(msg("请稍后再试"));
         }
         let mut user = UserImpl {
             id: u.id,
@@ -112,7 +113,7 @@ impl UserManager {
                     update!("user", {"suspend": suspend}, {"id" = u.id})
                         .execute(&self.db)
                         .await?;
-                    return Err(Error::plain("用户名或密码错误"));
+                    return Err(msg("用户名或密码错误"));
                 }
             };
         Ok(user)
@@ -148,7 +149,7 @@ impl UserManager {
     #[conerror]
     pub async fn create_user(&self, username: &str, password: &str) -> conerror::Result<impl User> {
         if username.is_empty() || password.is_empty() {
-            return Err(Error::plain("参数错误"));
+            return Err(msg("参数错误"));
         }
 
         let mut user = UserImpl {
@@ -172,14 +173,22 @@ impl UserManager {
         .execute(&self.db)
         .await?;
         if result.rows_affected() == 0 {
-            return Err(Error::plain("用户已存在"));
+            return Err(msg("用户已存在"));
         }
         user.id = result.last_insert_rowid();
         Ok(user)
     }
 
     #[conerror]
-    pub async fn find_user(&self, token: &str) -> conerror::Result<Option<impl User>> {
+    pub async fn find_user(&self, token: &str) -> conerror::Result<impl User> {
+        match self.find_user_optional(token).await? {
+            Some(v) => Ok(v),
+            None => Err(invalid_token()),
+        }
+    }
+
+    #[conerror]
+    pub async fn find_user_optional(&self, token: &str) -> conerror::Result<Option<impl User>> {
         let token = BASE64_URL_SAFE_NO_PAD.decode(token.as_bytes())?;
         if token.len() != 104 {
             return Ok(None);

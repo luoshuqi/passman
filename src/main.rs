@@ -27,6 +27,7 @@ use crate::user::UserManager;
 mod query;
 mod db;
 mod encryption;
+mod error;
 mod password;
 mod service;
 mod user;

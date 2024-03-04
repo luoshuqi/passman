@@ -1,35 +1,14 @@
 use std::borrow::Cow;
 
+use crate::error::msg;
 use conerror::conerror;
-use rustic_jsonrpc::{method, methods, Error, Method};
+use rustic_jsonrpc::{method, methods, Method};
 
 use crate::password::{
     Password, PasswordCreate, PasswordListItem, PasswordManager, PasswordUpdate,
 };
-use crate::user::{User, UserManager};
+use crate::user::UserManager;
 use crate::Opt;
-
-const ERR_GENERAL: i32 = -1;
-const ERR_INVALID_TOKEN: i32 = -2;
-
-fn error(error: conerror::Error) -> conerror::Error {
-    if error.location().is_some() {
-        return error;
-    }
-    conerror::Error::plain(Error::new(ERR_GENERAL, error.to_string(), None))
-}
-
-#[conerror]
-async fn find_user(user_manager: &UserManager, token: &str) -> conerror::Result<impl User> {
-    match user_manager.find_user(token).await? {
-        Some(v) => Ok(v),
-        None => Err(conerror::Error::plain(Error::new(
-            ERR_INVALID_TOKEN,
-            "token 无效",
-            None,
-        ))),
-    }
-}
 
 #[conerror]
 #[method(name = "user.login", inject(user_manager))]
@@ -38,11 +17,8 @@ async fn login<'a>(
     username: Cow<'a, str>,
     password: Cow<'a, str>,
 ) -> conerror::Result<String> {
-    let user = user_manager
-        .login(&username, &password)
-        .await
-        .map_err(error)?;
-    let token = user_manager.create_token(&user).await.map_err(error)?;
+    let user = user_manager.login(&username, &password).await?;
+    let token = user_manager.create_token(&user).await?;
     Ok(token)
 }
 
@@ -55,12 +31,9 @@ async fn create_user<'a>(
     password: Cow<'a, str>,
 ) -> conerror::Result<()> {
     if !opt.allow_create_user {
-        return Err(conerror::Error::plain("not available")).map_err(error);
+        return Err(msg("create user not available"));
     }
-    user_manager
-        .create_user(&username, &password)
-        .await
-        .map_err(error)?;
+    user_manager.create_user(&username, &password).await?;
     Ok(())
 }
 
@@ -71,7 +44,7 @@ async fn list_password(
     password_manager: &PasswordManager,
     token: &str,
 ) -> conerror::Result<Vec<PasswordListItem>> {
-    let user = find_user(user_manager, token).await?;
+    let user = user_manager.find_user(token).await?;
     let list = password_manager.list_password(&user).await?;
     Ok(list)
 }
@@ -84,7 +57,7 @@ async fn view_password(
     token: &str,
     id: i64,
 ) -> conerror::Result<Option<Password>> {
-    let user = find_user(user_manager, token).await?;
+    let user = user_manager.find_user(token).await?;
     Ok(password_manager.view_password(&user, id).await?)
 }
 
@@ -99,7 +72,7 @@ async fn create_password<'a>(
     password: Cow<'a, str>,
     attachment: Option<Cow<'a, str>>,
 ) -> conerror::Result<()> {
-    let user = find_user(user_manager, token).await?;
+    let user = user_manager.find_user(token).await?;
     let create = PasswordCreate {
         name: &name,
         username: &username,
@@ -122,7 +95,7 @@ async fn update_password<'a>(
     password: Cow<'a, str>,
     attachment: Option<Cow<'a, str>>,
 ) -> conerror::Result<()> {
-    let user = find_user(user_manager, token).await?;
+    let user = user_manager.find_user(token).await?;
     let update = PasswordUpdate {
         name: &name,
         username: &username,
@@ -141,7 +114,7 @@ async fn delete_password(
     token: &str,
     id: i64,
 ) -> conerror::Result<()> {
-    let user = find_user(user_manager, token).await?;
+    let user = user_manager.find_user(token).await?;
     password_manager.delete_password(&user, id).await?;
     Ok(())
 }
