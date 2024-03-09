@@ -3,7 +3,7 @@ use serde::Serialize;
 use sqlx::{FromRow, SqlitePool};
 
 use crate::encryption::EncryptionManager;
-use crate::user::{Credential, User};
+use crate::user::User;
 use crate::util::timestamp;
 
 pub struct PasswordCreate<'a> {
@@ -42,7 +42,7 @@ impl PasswordManager {
     }
 
     #[conerror]
-    pub async fn list_password(&self, user: &impl User) -> conerror::Result<Vec<PasswordListItem>> {
+    pub async fn list_password(&self, user: &User) -> conerror::Result<Vec<PasswordListItem>> {
         let list = select!(
             "password",
             ["id", "name", "updated_at"],
@@ -55,11 +55,7 @@ impl PasswordManager {
     }
 
     #[conerror]
-    pub async fn view_password(
-        &self,
-        user: &impl User,
-        id: i64,
-    ) -> conerror::Result<Option<Password>> {
+    pub async fn view_password(&self, user: &User, id: i64) -> conerror::Result<Option<Password>> {
         #[derive(FromRow)]
         struct Row {
             id: i32,
@@ -94,7 +90,7 @@ impl PasswordManager {
     #[conerror]
     pub async fn create_password(
         &self,
-        user: &impl User,
+        user: &User,
         create: PasswordCreate<'_>,
     ) -> conerror::Result<()> {
         let username = self.encrypt(user, create.username.as_bytes())?;
@@ -121,7 +117,7 @@ impl PasswordManager {
     #[conerror]
     pub async fn update_password(
         &self,
-        user: &impl User,
+        user: &User,
         id: i64,
         update: PasswordUpdate<'_>,
     ) -> conerror::Result<()> {
@@ -139,7 +135,7 @@ impl PasswordManager {
     }
 
     #[conerror]
-    pub async fn delete_password(&self, user: &impl User, id: i64) -> conerror::Result<()> {
+    pub async fn delete_password(&self, user: &User, id: i64) -> conerror::Result<()> {
         delete!("password", {"id" = id, "user_id" = user.id()})
             .execute(&self.db)
             .await?;
@@ -147,7 +143,7 @@ impl PasswordManager {
     }
 
     #[conerror]
-    fn encrypt(&self, user: &impl User, data: &[u8]) -> conerror::Result<Vec<u8>> {
+    fn encrypt(&self, user: &User, data: &[u8]) -> conerror::Result<Vec<u8>> {
         let data = self.encryption.encrypt(
             data,
             user.credential().password(),
@@ -157,7 +153,7 @@ impl PasswordManager {
     }
 
     #[conerror]
-    fn decrypt(&self, user: &impl User, data: &[u8]) -> conerror::Result<Vec<u8>> {
+    fn decrypt(&self, user: &User, data: &[u8]) -> conerror::Result<Vec<u8>> {
         let data = self.encryption.decrypt(
             data,
             user.credential().password(),

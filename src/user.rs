@@ -8,56 +8,35 @@ use crate::encryption::EncryptionManager;
 use crate::error::{invalid_token, msg};
 use crate::util::{fill_bytes, timestamp};
 
-pub trait User {
-    fn id(&self) -> i64;
-
-    fn username(&self) -> &str;
-
-    fn credential(&self) -> &impl Credential;
-}
-
-pub trait Credential {
-    fn password(&self) -> &[u8];
-
-    fn salt(&self) -> &[u8];
-}
-
-struct UserImpl {
+pub struct User {
     id: i64,
-    username: String,
-    credential: CredentialImpl,
+    credential: Credential,
 }
 
-impl User for UserImpl {
-    fn id(&self) -> i64 {
+impl User {
+    pub fn id(&self) -> i64 {
         self.id
     }
 
-    fn username(&self) -> &str {
-        &self.username
-    }
-
-    fn credential(&self) -> &impl Credential {
+    pub fn credential(&self) -> &Credential {
         &self.credential
     }
 }
 
-struct CredentialImpl(Vec<u8>);
+pub struct Credential(Vec<u8>);
 
-impl CredentialImpl {
+impl Credential {
     fn generate() -> Self {
         let mut v = vec![0; 64];
         fill_bytes(&mut v);
         Self(v)
     }
-}
 
-impl Credential for CredentialImpl {
-    fn password(&self) -> &[u8] {
+    pub fn password(&self) -> &[u8] {
         &self.0[..32]
     }
 
-    fn salt(&self) -> &[u8] {
+    pub fn salt(&self) -> &[u8] {
         &self.0[32..]
     }
 }
@@ -80,7 +59,7 @@ impl UserManager {
     }
 
     #[conerror]
-    pub async fn login(&self, username: &str, password: &str) -> conerror::Result<impl User> {
+    pub async fn login(&self, username: &str, password: &str) -> conerror::Result<User> {
         let u = match UserRow::find_by_username(&self.db, username).await? {
             Some(v) => v,
             None => return Err(msg("用户名或密码错误")),
@@ -88,10 +67,9 @@ impl UserManager {
         if u.suspend > timestamp() {
             return Err(msg("请稍后再试"));
         }
-        let mut user = UserImpl {
+        let mut user = User {
             id: u.id,
-            username: username.to_string(),
-            credential: CredentialImpl(Vec::new()),
+            credential: Credential(Vec::new()),
         };
         user.credential.0 =
             match self
@@ -120,14 +98,14 @@ impl UserManager {
     }
 
     #[conerror]
-    pub async fn create_token(&self, user: &impl User) -> conerror::Result<String> {
-        let token = CredentialImpl::generate();
+    pub async fn create_token(&self, user: &User) -> conerror::Result<String> {
+        let token = Credential::generate();
         let credential =
             self.encryption
                 .encrypt(&to_vec(user.credential()), token.password(), token.salt())?;
         let now = timestamp();
         let id = insert!("token", {
-            "user_id": user.id(),
+            "user_id": user.id,
             "credential": &credential,
             "last_active": now,
             "created_at": now,
@@ -147,15 +125,14 @@ impl UserManager {
     }
 
     #[conerror]
-    pub async fn create_user(&self, username: &str, password: &str) -> conerror::Result<impl User> {
+    pub async fn create_user(&self, username: &str, password: &str) -> conerror::Result<User> {
         if username.is_empty() || password.is_empty() {
             return Err(msg("参数错误"));
         }
 
-        let mut user = UserImpl {
+        let mut user = User {
             id: 0,
-            username: username.to_string(),
-            credential: CredentialImpl::generate(),
+            credential: Credential::generate(),
         };
 
         let mut salt = vec![0u8; 32];
@@ -180,7 +157,7 @@ impl UserManager {
     }
 
     #[conerror]
-    pub async fn find_user(&self, token: &str) -> conerror::Result<impl User> {
+    pub async fn find_user(&self, token: &str) -> conerror::Result<User> {
         match self.find_user_optional(token).await? {
             Some(v) => Ok(v),
             None => Err(invalid_token()),
@@ -188,7 +165,7 @@ impl UserManager {
     }
 
     #[conerror]
-    pub async fn find_user_optional(&self, token: &str) -> conerror::Result<Option<impl User>> {
+    pub async fn find_user_optional(&self, token: &str) -> conerror::Result<Option<User>> {
         let token = BASE64_URL_SAFE_NO_PAD.decode(token.as_bytes())?;
         if token.len() != 104 {
             return Ok(None);
@@ -223,10 +200,9 @@ impl UserManager {
         update!("token", {"last_active": timestamp()}, {"id" = t.id})
             .execute(&self.db)
             .await?;
-        Ok(Some(UserImpl {
+        Ok(Some(User {
             id: user.id,
-            username: user.username,
-            credential: CredentialImpl(credential),
+            credential: Credential(credential),
         }))
     }
 }
@@ -234,7 +210,6 @@ impl UserManager {
 #[derive(FromRow)]
 struct UserRow {
     id: i64,
-    username: String,
     salt: Vec<u8>,
     credential: Vec<u8>,
     suspend: i64,
@@ -243,11 +218,9 @@ struct UserRow {
 impl UserRow {
     #[conerror]
     async fn find(db: &SqlitePool, id: i32) -> conerror::Result<Option<UserRow>> {
-        let row = select!(
-            "user",
-            ["id", "username", "salt", "credential", "suspend"],
-            { "id" = id }
-        )
+        let row = select!("user", ["id", "salt", "credential", "suspend"], {
+            "id" = id
+        })
         .fetch_optional(db)
         .await?;
         Ok(row)
@@ -258,11 +231,9 @@ impl UserRow {
         db: &SqlitePool,
         username: &str,
     ) -> conerror::Result<Option<UserRow>> {
-        let row = select!(
-            "user",
-            ["id", "username", "salt", "credential", "suspend"],
-            { "username" = username }
-        )
+        let row = select!("user", ["id", "salt", "credential", "suspend"], {
+            "username" = username
+        })
         .fetch_optional(db)
         .await?;
         Ok(row)
@@ -289,7 +260,7 @@ impl TokenRow {
     }
 }
 
-fn to_vec(credential: &impl Credential) -> Vec<u8> {
+fn to_vec(credential: &Credential) -> Vec<u8> {
     let mut v = Vec::with_capacity(credential.password().len() + credential.salt().len());
     v.extend_from_slice(credential.password());
     v.extend_from_slice(credential.salt());
