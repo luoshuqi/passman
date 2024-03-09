@@ -38,6 +38,21 @@ async fn create_user<'a>(
 }
 
 #[conerror]
+#[method(name = "user.change_password")]
+async fn change_user_password<'a>(
+    #[inject] user_manager: &UserManager,
+    token: &str,
+    old_password: Cow<'a, str>,
+    new_password: Cow<'a, str>,
+) -> conerror::Result<()> {
+    let user = user_manager.find_user(token).await?;
+    user_manager
+        .change_password(&user, &old_password, &new_password)
+        .await?;
+    Ok(())
+}
+
+#[conerror]
 #[method(name = "password.list")]
 async fn list_password(
     #[inject] user_manager: &UserManager,
@@ -123,6 +138,7 @@ pub const fn methods() -> &'static [Method] {
     methods!(
         login,
         create_user,
+        change_user_password,
         list_password,
         view_password,
         create_password,

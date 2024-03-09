@@ -1,16 +1,16 @@
 use rustic_jsonrpc::Error;
 
 pub fn invalid_token() -> conerror::Error {
-    conerror::Error::plain(Error {
-        code: -2,
-        message: "登录已过期".to_string(),
-        data: None,
-    })
+    error(-2, "登录已过期")
 }
 
 pub fn msg(msg: impl ToString) -> conerror::Error {
+    error(-1, msg)
+}
+
+pub fn error(code: i32, msg: impl ToString) -> conerror::Error {
     conerror::Error::plain(Error {
-        code: -1,
+        code,
         message: msg.to_string(),
         data: None,
     })

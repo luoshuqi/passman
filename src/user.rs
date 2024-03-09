@@ -125,6 +125,42 @@ impl UserManager {
     }
 
     #[conerror]
+    pub async fn change_password(
+        &self,
+        user: &User,
+        old_password: &str,
+        new_password: &str,
+    ) -> conerror::Result<()> {
+        if new_password.is_empty() {
+            return Err(msg("参数错误"));
+        }
+        self.verify_password(user.id, old_password).await?;
+
+        let mut salt = vec![0u8; 32];
+        fill_bytes(&mut salt);
+        let credential =
+            self.encryption
+                .encrypt(&to_vec(&user.credential), new_password.as_bytes(), &salt)?;
+        update!("user", {"salt": &salt,"credential": &credential}, {"id" = user.id})
+            .execute(&self.db)
+            .await?;
+        Ok(())
+    }
+
+    #[conerror]
+    async fn verify_password(&self, user_id: i64, password: &str) -> conerror::Result<()> {
+        match UserRow::find(&self.db, user_id).await? {
+            Some(u) => {
+                self.encryption
+                    .decrypt(&u.credential, password.as_bytes(), &u.salt)
+                    .map_err(|_| msg("密码错误"))?;
+                Ok(())
+            }
+            None => Err(msg("密码错误")),
+        }
+    }
+
+    #[conerror]
     pub async fn create_user(&self, username: &str, password: &str) -> conerror::Result<User> {
         if username.is_empty() || password.is_empty() {
             return Err(msg("参数错误"));
@@ -185,7 +221,7 @@ impl UserManager {
             return Ok(None);
         }
 
-        if t.last_active + TOKEN_IDLE_DURATION <= timestamp() as i64 {
+        if t.last_active + TOKEN_IDLE_DURATION <= timestamp() {
             return Ok(None);
         }
 
@@ -217,7 +253,7 @@ struct UserRow {
 
 impl UserRow {
     #[conerror]
-    async fn find(db: &SqlitePool, id: i32) -> conerror::Result<Option<UserRow>> {
+    async fn find(db: &SqlitePool, id: i64) -> conerror::Result<Option<UserRow>> {
         let row = select!("user", ["id", "salt", "credential", "suspend"], {
             "id" = id
         })
@@ -243,7 +279,7 @@ impl UserRow {
 #[derive(FromRow)]
 struct TokenRow {
     id: i32,
-    user_id: i32,
+    user_id: i64,
     credential: Vec<u8>,
     last_active: i64,
 }
